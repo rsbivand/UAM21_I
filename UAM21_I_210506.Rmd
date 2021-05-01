@@ -1,0 +1,1276 @@
+---
+title: "Introduction to R (II)"
+author: "Roger Bivand"
+date: "Thursday 6 May 2021"
+output: 
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+    toc_depth: 2
+theme: united
+bibliography: uam21.bib
+link-citations: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, paged.print=FALSE)
+```
+
+### Copyright
+
+All the material presented here, to the extent it is original, is available under [CC-BY-SA](https://creativecommons.org/licenses/by-sa/4.0/). 
+
+### Required current contributed CRAN packages:
+
+I am running R 4.0.5, with recent `update.packages()`.
+
+```{r, echo=TRUE}
+needed <- c("mapview", "mapsf", "tmap", "ggplot2", "lme4", "openxlsx", "bdl", "terra", "stars", "sf", "readxl", "rgugik")
+```
+
+### Script
+
+Script and data at https://github.com/rsbivand/UAM21_I/raw/main/UAM21_I_210506.zip. Download to suitable location, unzip and use as basis.
+
+
+### Schedule
+
+- Today, file input/output, introduction to graphics, starting spatial data
+
+| Time | Topic |
+| :--- | :---- |
+|**Wednesday 5/5**|    |
+|09.00-12.00| What is R: programming language, community, ecosystem? What may it be used for in analysing spatial data in a social science setting? What are the basic data structures in R? How can we start writing an R markdown notebook? How to access help in using R? How to use built-in data sets and why? How to write reproducible examples? What can we learn from code examples? How can R help us in furthering reproducible research? |
+|13.00-16.00| What kinds of  data objects are used in R? What is the structure of a data.frame? What is a list object? What kinds of data can be contained in data objects? |
+|**Thursday 6/5**|    |
+|09.00-12.00| How may we read data into R? From files, including spatial data files, and from online resources? How can we choose between output formats for notebooks and other output media? What are classes and formulae? How can one choose between the basic graphics functions and devices in R? |
+|13.00-16.00| When our data include spatial data objects, in which ways may they be represented in R? How can one make simple thematic maps using R? (sf, stars, tmap) |
+|**Monday 10/5**|    |
+|09.00-12.00| May we use R "like a GIS"? How may we structure temporal and spatio-temporal data? Closer introduction to R-spatial (sf, stars, gdalcubes, terra, GDAL, GEOS) |
+|13.00-16.00| Planar and spherical geometries, projections and transformations (s2, PROJ, tmap, mapview, leaflet, geogrid) |
+|**Tuesday 11/5**|    |
+|09.00-12.00| What forms of expression and colour scales are available in R? How can we use class intervals and colour palettes to communicate? Rather than "lying with maps", how can we explore the impact of choices made in thematic cartography? How can we condition on continuous or discrete variables to permit visual comparison? How can we combine multiple graphical elements in data visualization? (classInt, sf, tmap, mapsf) |
+|13.00-16.00| Doing things with spatial data ... (osmdata, ...) |
+|**Thursday 20/11**|    |
+|09.00-12.00| Presentations/consultations/discussion |
+|13.00-16.00| Presentations/consultations/discussion |
+
+
+# Data file input and output
+
+- When you quit an R session, you may be asked whether you want to save the workspace (in your current working directory, as `.RData`) and/or your session history (in your current working directory, as `.Rhistory`). 
+
+- I never save these, and thus avoid the possible problem that starting an R session in that directory loads both the objects and the history into R as it begins.
+
+- We'll get back to saving objects and command history from an R session later. For now we'll concentrate on getting data into R
+
+## Data input
+
+We have already seen that built-in data sets can be used; here we use the `voivodeship_names` `"data.frame"` object included in the **rgugik** package:
+
+
+```{r}
+library(rgugik)
+data(voivodeship_names)
+class(voivodeship_names)
+```
+It contains three columns, all containing character strings of voivodeship names and a two-digit code:
+
+```{r}
+head(voivodeship_names)
+```
+```{r}
+str(voivodeship_names)
+```
+
+
+Data can be input directly if need be, from for example: https://pl.wikipedia.org/wiki/Sejmik_wojew%C3%B3dztwa. The rule explained there is that for populations up to 2 million, 30 councilors are chosen, with three more per next begun half-million. If we create a new `"TERC"` column, we can then merge our new `"data.frame"` with the one from **rgugik**:
+
+```{r}
+TERC <- formatC(seq(2, 32, 2), format="d", width=2, flag="0")
+sejmik_size <- c(36, 30, 33, 30, 33, 39, 51, 30, 33, 30, 33, 45, 30, 30, 39, 30)
+my_data <- data.frame(TERC=TERC, sejmik_size=sejmik_size)
+my_data1 <- merge(voivodeship_names, my_data, by="TERC")
+head(my_data1)
+```
+
+### Data input: plain text files
+
+I also copied and pasted the same Wikipedia table into a spreadsheet, and saved it as a comma separated value file. Some "CSV" files actually use semi-colons as column delimiters, but here it is a comma - let's check the top of the file:
+
+```{r}
+readLines("../data/copied_data.csv", n=2)
+```
+```{r}
+copied_data <- read.csv("../data/copied_data.csv")
+str(copied_data)
+```
+When reading plain text files, the function used has to work out what kind of data each column contains; base functions read the data twice to check, but the user can override these guesses. It is also possible to use other packages for very large plain text data files, such as `data.table::fread()` or `readr::read_csv()`; they read some rows to guess the column types, and `fread()` is fast because it can utilise multiple cores.
+
+This object doesn't have an easy look-up table like `"TERC"`, so we'll need to match them carefully by removing case endings from lower-case renderings of the names:
+
+```{r}
+a <- gsub("kie", "", my_data1$NAME_PL)
+b <- sub(" ", "", gsub("kiego", "", substring(tolower(copied_data$Sejmik), 20)))
+(o <- match(a, b))
+```
+We can assert the ordering by indexing the rows by the matches - here this is a no-op:
+
+```{r}
+my_data2 <- cbind(my_data1, copied_data[o,])
+str(my_data2)
+```
+However, if we randomise the order of the rows in the `"data.frame"`, we can still get the fish back from the fish soup (we control the randomisation by setting the random number generator seed):
+
+```{r}
+set.seed(1)
+zz <- copied_data[sample(nrow(copied_data)),]
+head(zz)
+```
+```{r}
+b1 <- sub(" ", "", gsub("kiego", "", substring(tolower(zz$Sejmik), 20)))
+(o1 <- match(a, b1))
+```
+
+```{r}
+zz1 <- cbind(my_data1, zz[o1,])
+head(zz1)
+
+```
+
+
+```{r}
+all.equal(my_data2$sejmik_size, my_data2$Liczba.radnych)
+```
+
+
+```{r}
+all.equal(zz1$sejmik_size, zz1$Liczba.radnych)
+```
+
+### Data input: binary files
+
+Sample binary (well compressed structured text) files include spreadsheet files as often provided by public organisations. Here we are using election data from local authority elections from 2018 downloaded from:
+https://wybory2018.pkw.gov.pl/xls/2018-sejmiki.zip. One of the files contains results tabulated by voivodeship, and we can use the **readxl** package and `read_excel()` to read the only sheet into a `"data.frame"`; there are lots of variables, but we'll make the names syntactically valid first:
+
+```{r}
+library(readxl)
+wybory18 <- as.data.frame(read_excel("../data/2018-sejmiki-po-wojewвdztwach.xlsx"))
+names(wybory18) <- make.names(names(wybory18))
+str(wybory18)
+```
+
+We can also tell `merge()` that the matching columns have different names
+
+```{r}
+my_data_3 <- merge(x=my_data2, y=wybory18, by.x="NAME_PL", by.y="Województwo")
+```
+
+The **foreign** package and later additions permit the reading of binary files from other (statistical) software into `"data.frames"`; the function or package used may vary with the version of the software. Probably spreadsheets are the most frequently encountered non-plain-text files, but here care is needed with multiple sheets and with extra rows of non-tabular information. 
+
+### Data input: geospatial binary vector files
+
+In general terms, almost all geospatial data is read into R workspaces using the drivers provided by the external GDAL library. On Windows and MacOS, a fairly updated version of GDAL is built into the **sf** package, and this provides many vector drivers. Here we mean GIS-style vector data (point coordinates, or points structuring lines and polygons), not R vectors.
+
+```{r}
+library(sf)
+drvs <- st_drivers("vector")[, -2]
+drvs[order(drvs$name),]
+```
+The drivers available vary from GDAL version to version, and depending on the build and installation system. The `st_read()` function reads the geometry and attribute data, storing the geometries in a list column in a `"data.frame"`:
+
+```{r}
+vv <- st_read("../data/rgugik_vv.gpkg")
+```
+
+```{r}
+class(vv)
+```
+We'll return to look at the structures involved next week. The indexing variable here is `"TERYT"` rather than `"TERC"`, but they have the same form:
+
+```{r}
+head(vv)
+```
+
+
+### Data input: geospatial binary raster files
+
+If need be, we'll return to raster files next week if they are needed by participants. The **stars** and **terra** packages use GDAL raster drivers to handle raster data, both can handle multiband data, and **stars** and **gdalcubes** handle multiband space-time arrays (perhaps **terra** does too).
+
+```{r}
+library(stars)
+```
+
+
+```{r}
+library(terra)
+```
+
+
+### Data input: online data sources
+
+We have already implicitly used one package, **rgugik** to access voivodeship boundaries https://cran.r-project.org/package=rgugik:
+
+```{r, cache=TRUE}
+library(rgugik)
+vv1 <- borders_get(voivodeship_names$NAME_PL)
+head(vv1)
+```
+
+```{r}
+my_data_4 <- merge(vv1, my_data_3, by.x="TERYT", by.y="TERC")
+st_geometry(my_data_4)
+```
+
+The  new **bdl** package gives access to the local data bank of Statistics Poland  https://cran.r-project.org/package=bdl; many organisations now publish public API specifications to access their data, in addition to providing interactive access letting the user choose and download data. If we use the interactive https://bdl.stat.gov.pl/BDL/start interface, we can look for regional accounts. These screendumps show choices made from the Polish version:
+
+!(Screenshot_2021-04-29 GUS - Bank Danych Lokalnych.png)
+
+!(Screenshot_2021-04-29 GUS - Bank Danych Lokalnych2.png)
+
+!(Screenshot_2021-04-29 GUS - Bank Danych Lokalnych3.png)
+
+leading to the download of files such as:
+
+```{r}
+GRP_csv <- read.csv2("../data/RACH_3498_CTAB_20210429141300.csv")
+dim(GRP_csv)
+head(GRP_csv)
+```
+```{r}
+GRP_piv_dane <- as.data.frame(read_excel("../data/RACH_3498_XPIV_20210429142101.xlsx", sheet="DANE"))
+dim(GRP_piv_dane)
+head(GRP_piv_dane)
+```
+
+
+We can do the same programmatically in similar steps to those taken interactively. Of course, what we access depends on the current state of the data source, so downloads or API access may yield different outcomes at different times as errors are corrected. First, what level corresponds to voivodeships?
+
+```{r}
+library(bdl)
+```
+
+
+```{r, cache=TRUE}
+GUSlevels <- as.data.frame(get_levels())
+woj_level <- GUSlevels[grep("Woj", GUSlevels$name), "id"]
+str(woj_level)
+```
+Now we need to search for the keyword `"RACH"`:
+
+```{r, cache=TRUE}
+(rachunki_reg <- as.data.frame(search_subjects("RACH")))
+```
+
+```{r}
+(rr_subject <- rachunki_reg[grep("RACH", rachunki_reg$name), "id"])
+```
+
+
+```{r, cache=TRUE}
+x <- get_subjects(parentId=rr_subject)
+(rr_subjects <- as.data.frame(x))
+```
+
+```{r}
+(rr_target <- unlist(rr_subjects[grep("NUTS 2", rr_subjects$name)[1], "children"]))
+```
+
+```{r, cache=TRUE}
+(rr_vars <- as.data.frame(get_variables(rr_target[1])))
+```
+
+```{r}
+(rr_var <- rr_vars$id[1])
+```
+
+```{r, cache=TRUE}
+rr_data <- as.data.frame(get_data_by_variable(rr_var, unitLevel = woj_level, year = 2014:2019))
+```
+
+```{r}
+rr_data$TERC <- substring(rr_data$id, 3, 4)
+names(rr_data)[4] <- "PRB"
+head(rr_data)
+```
+
+```{r}
+oo <- reshape(rr_data[, -c(5:8)], v.names="PRB", timevar="year", idvar=c("TERC", "id", "name"), direction="wide")
+rr_data_wide <- oo[order(oo$TERC), ]
+dim(rr_data_wide)
+head(rr_data_wide)
+```
+
+So online download from the data provider via **bdl** and the API can give is the same data as by choosing the data interactively and downloading a file to be read into R (if at about the same time). 
+
+```{r}
+all.equal(rr_data_wide[, 4:8], GRP_csv[,3:7], check.attributes=FALSE)
+```
+So now we'll merge the gross regional product with the geometries and data we already have:
+
+```{r}
+names(my_data_4)
+```
+```{r}
+my_data_5 <- merge(my_data_4, rr_data_wide, by.x="TERYT", by.y="TERC")
+```
+
+
+## Data output
+
+The most simple current output of results is as a notebook, using `Sweave()` or `knitr::knit()`, also available in the RStudio IDE. This keeps the code and the output together, and for HTML output may also include interactive components (which may be quite large). Both R and RStudio include local web servers to display HTML output through browsers or other renderers. These are similar in kind to Jupyter notebooks in Python and elsewhere.
+
+
+### Data output: R objects, workspaces, and history
+
+In producing such notebook output, RStudio can cache objects, avoiding re-running long computations (or here avoiding multiple downloads from GUS or GUGIK) if the code in a chunk is unchanged, and where none of the arguments used are changed by earlier chunks. We can also do this manually, storing R objects in binary compressed form as RDS (single object, `saveRDS()`, `readRDS()`) form, or multiple objects as RData, RDA (multiple object, `save()`, `load()`) form. The RDA form is also used to save whole workspaces. 
+
+```{r}
+saveRDS(my_data_5, file="my_data_5.rds")
+my_data_5a <- readRDS("my_data_5.rds")
+all.equal(my_data_5, my_data_5a)
+```
+Similarly, `savehistory()` can be used to save your session history to a text file for subsequent reference. In RStudio, the active history is shown in a tab, and can be saved from there.
+
+### Data output: plain text files
+
+Tabular data may be saved using `write.csv()` and similar:
+
+```{r}
+write.csv(rr_data, file="rr_data.csv", row.names=FALSE)
+cat(readLines("rr_data.csv", n=3), "\n")
+```
+Non-tabular data, such as model output, may use `sink()` to dump output to file:
+
+```{r}
+summary(lm(Liczba.głosów.ważnych ~ PRB.2018, data=my_data_5))
+```
+
+```{r}
+sink(file="output.txt")
+summary(lm(Liczba.głosów.ważnych ~ PRB.2018, data=my_data_5))
+sink()
+cat(readLines("output.txt"), sep="\n")
+```
+
+
+### Data output: binary files
+
+In addition to R objects serialised to binary files, we can of course export tabular data to other software. Writing to Excel is possible with **openxlsx**:
+
+```{r}
+library(openxlsx)
+write.xlsx(rr_data_wide, file="rr_data_wide.xlsx")
+all.equal(read_excel("rr_data_wide.xlsx"), rr_data_wide, check.attributes=FALSE)
+```
+For exchange with other software, again start with **foreign**.
+
+
+### Data output: geospatial binary vector files
+
+Typically, we use the **sf** function `st_write()`, again using GDAL drivers.
+
+```{r}
+st_write(vv1, dsn="vv1.gpkg", append=FALSE)
+```
+
+
+# Classes, methods and formulae etc.
+
+
+### Classes and methods
+
+- In S2 syntax, there were objects; in S3, some objects also had a class attribute set, to offer guidance on what the object might contain
+
+- In S4, the contents of objects were formalised, moving checks from methods dispached by the class of the first method argument to the classes themselves
+
+- In OOP in other languages, methods belong to objects, and RC (reference classes) and R6 systems have been developed to provide these
+
+- RC are linked to the success of **Rcpp**, and perhaps used in **reticulate** to interface Python from R (see **keras** and **tensorflow**)
+
+
+### Formulae
+
+- Formulae provide the S3 modelling interface, and use non-standard evaluation
+
+- They tell us where to look for variables in modelling, and which transformations to apply to them
+
+- They provide us with what we need from our data in terms of output from analyses
+
+- They are very flexible, with `update` methods to modify our approaches flexibly
+
+
+### Non-standard evaluation and combining functions/pipes
+
+- There are plenty of base R functions that use non-standard evaluation, such as `formula` and `library`
+
+- The underlying issue is often how to point to objects within other objects, where the emcompassing object is an `environment` or `data.frame`
+
+- Connections to files and databases include the original meaning of "pipe"
+
+- More recently, pipes may be used instead of nested function arguments
+
+
+## Classes and methods
+
+### Classes
+
+- Classes and objects appeared first in Simula from the Norwegian Computing Center in Oslo, and were intended to further encapsulation in programs
+
+- C++ was the extension of C to include Simula-like object handling, and, like Simula, a garbage collector
+
+- More modern languages, like Java, settled on a strict OOP view of classes of objects that contained methods, but until the 1990s, this was not the only possibility
+
+- S adopted a functional class quasi-system with S3, where generic methods stood apart from classes of objects, but related to them
+
+### S3 classes and methods
+
+- As in file names, various non-alphanumeric characters can be used to separate parts, for example the `.` dot
+
+- In S and early R, the `_` underscore was used for assignment like `<-` ([see this posting](https://stat.ethz.ch/pipermail/r-help/2000-October/008466.html))
+
+- So a central S3 class was called `data.frame`, and coercion to a `data.frame` was `as.data.frame.matrix` for a matrix argument, and `as.data.frame.list` for a list argument
+
+- Here the `as.data.frame` part was sufficient, and method dispatch would choose the appropriate implementation by matching the class of the first argument to the final dot-separated part of the list of available methods
+
+### S3 classes and methods
+
+```{r, echo = TRUE}
+methods(as.data.frame)
+```
+
+### Side note on naming conventions
+
+- [Rasmus Bååth](https://journal.r-project.org/archive/2012/RJ-2012-018/index.html) has a report on naming conventions used in R some years ago
+
+- More recently, lowerCamelCase and snake_case have become predominant, with most recent code being snake_case (all lower case and words separated by underscore)
+
+- Obviously, the case-matching component of generic methods for S3 objects has to be separated by a dot
+
+### S3 and extension
+
+- It is easy to create new methods for existing generic functions, like `print`, `plot`, or `summary`
+
+- It is also easy to create new classes - no definition is needed, but as software develops, the class-specific methods often need to guard against the absence of object components typically with `!is.null()` usage
+
+- If you save an S3 object, say to an RDS file, possibly for serialization, the package context of the class will be lost
+
+- Then the class attribute will be set, but which package provides the methods for that class is not recorded
+
+### Attributes
+
+```{r, echo = TRUE}
+data(mtcars)
+class(mtcars)
+attributes(mtcars)
+```
+
+### Search path
+
+```{r, echo = TRUE}
+(oS <- search())
+```
+
+### Method dispatch
+
+```{r, echo = TRUE}
+library(mgcv)
+gm <- gam(formula=mpg ~ s(wt), data=mtcars)
+class(gm)
+print(gm)
+```
+
+```{r, echo = TRUE}
+stats:::print.glm(gm)
+```
+
+### Which methods
+
+```{r, echo = TRUE}
+methods(logLik)
+```
+
+### `library` affects the search path
+
+Because `library` affects the search path, we have added visible methods compared to our first view of those available
+
+```{r, echo = TRUE}
+nS <- search()
+nS[!(nS %in% oS)]
+```
+
+
+### S4 classes and methods
+
+- In the online version of \citet{wickham:14} [here](http://adv-r.had.co.nz/), and in the forthcoming [second edition](https://adv-r.hadley.nz/), there are short descriptions of formal S4 classes
+
+- They were introduced in the Green Book \citep{R:Chambers:1998}, and covered in \citet{R:Venables+Ripley:2000}, \citet{R:Chambers:2008} and \citet{chambers:16}
+
+- The **methods** package provides S4 classes in R and is used both for formal S4 classes and for RC reference classes also used in **Rcpp** modules
+
+- S4 classes are used extensively in [Bioconductor](https://www.bioconductor.org/) packages
+
+### S4 classes and methods
+
+- Writing S4 classes involves thinking ahead, to plan a hierarchy of classes (and virtual classes)
+
+- If it is possible to generalise methods in the inheritance tree of class definitions, a method can be used on all descendants inheriting from a root class
+
+- Formal classes also provide certainty that the classes contain slots as required, and objects can be checked for validity
+
+- Over time, unclassed and S3 objects have been made able to work within S4 settings, but some of these adaptations have been fragile
+
+
+### S4 classes for sparse matrices
+
+First, a standard dense identity (unit diagonal) matrix created using `diag`
+
+```{r, echo = TRUE}
+d100 <- diag(100)
+isS4(d100)
+class(d100)
+str(d100)
+object.size(d100)
+```
+
+```{r, echo = TRUE}
+getClass(class(d100))
+```
+
+Now a sparse identity (unit diagonal) matrix with `Diagonal` from the **Matrix** package
+
+```{r, echo = TRUE}
+library(Matrix)
+D100 <- Diagonal(100)
+class(D100)
+isS4(D100)
+str(D100)
+object.size(D100)
+```
+
+```{r, echo = TRUE}
+getClass(class(D100))
+```
+
+```{r, echo = TRUE}
+showMethods(f=coerce, classes=class(D100))
+```
+
+```{r, echo = TRUE}
+str(as(D100, "dgeMatrix"))
+```
+
+### Reference classes (RC and R6)
+
+- Reference classes are (much more) like OOP mechanisms in C++, Java, and other programming languages, in which objects contain their class-specific methods
+
+- Because the methods are part of the class definitions, the appropriate method is known by the object, and dispatch is unproblematic
+
+- Reference classes are provided in the **methods** package, and R6 classes in the **R6** package
+
+- R6 classes are more light-weight than RC classes
+
+## Formulae
+
+### Formula objects
+
+- A unifying feature of S and R has been the treatment of `data.frame` objects as `data=` arguments to functions and methods
+
+- Most of the functions and methods fit models to data, and `formula` objects show how to treat the variables in the `data=` argument, or if not found there, in the calling environments of the model fitting function
+
+- We saw this earlier when looking at `mgcv::gam`, but did not explain it
+
+- Formulae may be two-sided (mostly) and one-sided; the **Formula** package provides extensions useful in econometrics
+
+Formula objects can be updated
+
+```{r, echo = TRUE}
+library(mgcv)
+f <- mpg ~ s(wt)
+gm <- gam(formula=f, data=mtcars)
+gm1 <- gam(update(f, . ~ - s(wt) + poly(wt, 3)), data=mtcars)
+anova(gm, gm1, test="Chisq")
+```
+
+```{r, echo = TRUE}
+mtcars$fcyl <- as.factor(mtcars$cyl)
+f1 <- update(f, log(.) ~ - s(wt) - 1 + wt + fcyl)
+f1
+lm(f1, data=mtcars)
+```
+
+
+```{r, echo = TRUE}
+terms(f1)
+```
+
+
+```{r, echo = TRUE}
+head(model.matrix(f1, mtcars))
+```
+
+```{r, echo = TRUE}
+model.response(model.frame(f1, mtcars))[1:6]
+mtcars$mpg[1:6]
+log(mtcars$mpg[1:6])
+```
+
+```{r, echo = TRUE}
+library(lme4)
+lmm <- lmer(update(f, log(.) ~ poly(wt, 3) | fcyl), mtcars)
+fixef(lmm)
+ranef(lmm)
+```
+
+```{r, echo = TRUE}
+mtcars$fam <- as.factor(mtcars$am)
+lm(update(f, log(.) ~ - s(wt) + (fam*fcyl)/wt - 1), mtcars)
+```
+
+```{r, echo = TRUE}
+xtabs(~ fam + fcyl, data=mtcars)
+row.names(mtcars)[mtcars$am == 1]
+```
+
+## Non-standard evaluation and combining functions/pipes
+
+### Non-standard evaluation
+
+- In some settings in S and later R, it has been convenient to drop quotation marks around strings repesenting names of packages, list components and classes
+
+- We've seen this in action already, but have not drawn attention to it
+
+- In particular, the `$` list component selection operator uses this, as does the use of names in formulae
+
+- We also see the same thing in functions attaching packages `library` and `require`
+
+
+```{r, echo = TRUE}
+require
+```
+
+In such settings, we cannot use a single element character vector to transmit information:
+
+```{r, echo = TRUE}
+ggplot2 <- "gridExtra"
+ggplot2
+ggplot2 <- as.character(substitute(ggplot2))
+ggplot2
+paste0("package:", ggplot2) %in% search()
+```
+
+Here a similar mechanism is used to look inside the first `data.frame` rather than the current and global environments
+
+```{r, echo = TRUE}
+subset(mtcars, subset=cyl == 4)
+```
+
+```{r, echo = TRUE}
+acyl <- "cyl"
+ncyl <- 4
+mtcars[mtcars[[acyl]] == ncyl,]
+```
+
+
+```{r, echo = TRUE}
+is.list(mtcars)
+mtcars[eval(substitute(cyl == 4), mtcars, parent.frame()), ]
+```
+
+In [a blog post](http://www.brodrigues.co/blog/2017-12-27-build_formulae/), **rlang** is used to create a list of formulae, but we can use SE constructs
+
+```{r, echo = TRUE}
+create_form = function(power){
+ rhs = substitute(I(hp^pow), list(pow=power))
+ as.formula(paste0("mpg ~ ", deparse(rhs)))
+}
+list_formulae = Map(create_form, seq(1,6))
+  # mapply(create_form, seq(1,6))
+llm <- lapply(list_formulae, lm, data=mtcars)
+sapply(llm, function(x) summary(x)$sigma)
+```
+
+- Non-standard evaluation may be attractive, as the history of S and R syntax has shown
+
+- Use in additive graphics in **ggplot2** and in verbs in **dplyr** and similar packages has led to increases
+
+- Standard evaluation is arguably more programmable, but workflows using NSE are promoted (not least by RStudio)
+
+- It is interesting that [Microsoft](http://blog.revolutionanalytics.com/2017/12/introduction-to-seplyr.html) are drawing attention to **seplyr** (see also [John Mount's blog](http://www.win-vector.com/blog/2017/12/getting-started-with-seplyr/))
+
+
+### Connections
+
+- Connections are part of base R corresponding to innovations in S4, the **DBI** database interface abstractions began to appear at about the same time
+
+- The **DBI** classes are formal S4 classes for obvious reasons, but in R connections are S3 classes
+
+- Connections generalize files to include downloading (also from https) and uncompressing files, and exchanging data by socket
+
+- Connections are sometimes platform-specific, and are used inside input-output functions (tomorrow)
+
+```{r, echo = TRUE}
+(lns <- readLines(pipe("dir")))
+```
+
+```{r, echo = TRUE}
+con <- file(lns[3])
+readLines(con, n=6L)
+close(con)
+```
+
+### Pipes
+
+- The **magrittr** package introduced the `%>%` pipe; coupled to right assign `->`, it even looks reasonable
+
+- There are [more pipes](http://www.win-vector.com/blog/2017/12/more-pipes-in-r/) in R, and the Bizarro pipe `->.;` is pure base R, saving output to `.`
+
+- The arguments for writing with pipes are concentrated on readability
+
+- It is possible that R 4.1.0 due 18 May will include native pipes: `|>`, but this remains ongoing work.
+
+- Finally, I first saw `->` used with pipes in a [talk](https://channel9.msdn.com/Events/useR-international-R-User-conference/useR2016/How-to-use-the-archivist-package-to-boost-reproducibility-of-your-research) about the **archivist** package
+
+- **archivist** is also discussed in [this blog](http://smarterpoland.pl/index.php/2017/12/boost-the-reproducibility-of-your-research-with-archivist/)
+
+
+
+# Simple visualizations
+
+### Graphics and visualization in R
+
+- We can distinguish between presentation graphics and analytical graphics
+
+- Presentation graphics are intended for others and are completed (even if interactive) - see work by [Florence Nightingale](https://understandinguncertainty.org/coxcombs)
+
+- Analytical graphics may evolve into presentation graphics, but their main purpose is to visualize the data being analysed (see Antony Unwin's book and [website](http://www.gradaanwr.net/), and Claus Wilke's [Fundamentals of Data Visualization](https://serialmentor.com/dataviz/)])
+
+- Many of the researchers who have developed approaches to visualization have been involved with Bell Labs, where S came from
+
+- As installed, R provides two graphics approaches, one known as base graphics, the other trellis or lattice graphics
+
+- Most types of visualization are available for both, but lattice graphics were conceived to handle conditioning, for example to generate matching plots for different categories
+
+- Many of these were based on the data-ink ratio, favouring graphics with little or no extraneous detail (Edward Tufte) - see [Lukasz Piwek's blog](http://motioninsocial.com/tufte/)
+
+- There are other approaches, such as Leland Wilkinson's Grammar of Graphics, implemented in Hadley Wickham's **ggplot2** package, which we will also be using here as its use is growing fast
+
+
+- So there are presentation and analytical graphics, and there can be a number of approaches to how best to communicate information in either of those modes
+
+- R can create excellent presentation graphics, or provide input for graphics designers to improve for print or other media
+
+- What we need now are the most relevant simple analytical graphics for the kinds of data we use
+
+
+### Base graphics
+
+- In early R, all the graphics functionality was in **base**; **graphics** was split out of **base** in 1.9.0 (2004-04-12), and **grDevices** in 2.0.0 (2004-10-04)
+
+- When R starts now, the **graphics** and **grDevices** packages are loaded and attached, ready for use
+
+- **graphics** provides the user-level graphical functions and methods, especially the most used `plot()` methods that many other packages extend
+
+- **grDevices** provides lower-level interfaces to graphics devices, some of which create files and others display windows
+
+### Base graphics packages
+
+The `search()` function shows the packages present in the search path, so here we run an instance of R through `system()` to check the startup status. In RStudio, one will also see `"tools:rstudio"` in the search path.
+
+```{r, echo = TRUE}
+cat(system('echo "search()" | R --no-save --vanilla', intern=TRUE)[20:23], sep="\n")
+```
+
+
+### Graphics devices
+
+- The PDF (`pdf()`) and PostScript (`postscript()`) devices write commonly used vector files
+
+- Display formats and raster/pixel file devices must rasterize vector graphics input
+
+- Display formats vary by platform: `X11()` on X11 systems, `quartz()` on macOS, `windows()` on Windows and are available if compiled
+
+- `png()`, `jpeg()`, `tiff()` are generally available, `svg()` and `cairo_pdf()` and `cairo_ps()` may also be built
+
+
+
+The `capabilities()` function shows what R itself can offer, including non-graphics capabilities, and we can also check the versions of external software used
+
+```{r, echo = TRUE}
+capabilities()
+grSoftVersion()
+```
+
+
+
+When there is no device active, the current device is the null device at position `1`; one can open several and move between active devices. In RStudio, the devices used vary by context - if the console is used, `RStudioGD` will be used, backed by `png`; in a notebook, small embedded devices appear (apparently PNG inline images).In addition to providing a device, RStudio appears to work quite hard to embed fonts and crop white space on the edges of the graphics file.
+
+
+## Jacoby: synthetic data and methods
+
+
+There are four numeric variables of the same length, read into a `data.frame`. The `summary` method shows their characteristics:
+
+
+```{r , echo = TRUE}
+jacoby <- read.table("../data/jacoby.txt")
+summary(jacoby)
+```
+
+
+Using the `plot` method on a single numeric vector puts that variable on the vertical (y) axis, and an observation index on the horizontal (x) axis
+
+
+```{r , echo = TRUE}
+plot(jacoby$x1)
+```
+
+
+### Simple scatterplot methods
+
+
+Using the `plot` method on two numeric vectors puts the first vector on the horizontal (x) axis, and the second on the vertical (y) axis
+
+
+```{r , echo = TRUE}
+plot(jacoby$x1, jacoby$x2)
+```
+
+By convention, the x-axis is seen as causing the y-axis, so we can use a formula interface, and a `data` argument to tell the method where to find the vectors by name (column names in the data.frame)
+
+
+```{r , echo = TRUE}
+plot(x2 ~ x1, data=jacoby)
+```
+
+
+- In these cases, the default plot shows points, which is reasonable here
+
+- The default glyph (symbol) is a small unfilled circle, the `pch` argument lets us change this (and its colour by `col`)
+
+- The display is annotated with value scales along the axes, and the axes are placed to add a little space outside the bounding box of the observations
+
+- The display includes axis labels, but does not include a title
+
+
+Here, we'll manipulate the axis labels, and symbol type, colour and size; the symbol type, colour and size are also vectors, so can vary by observation or for groups of observations
+
+
+```{r , echo = TRUE}
+plot(x2 ~ x1, data=jacoby, xlab="First vector",
+  ylab="Second vector", pch=16, col="#EB811B",
+  cex=1.2)
+```
+
+
+Base graphics methods like plot can be added to, drawing more on the open device. We'll add lines with `abline` showing the means of the two vectors:
+
+
+```{r , echo = TRUE}
+plot(x2 ~ x1, data=jacoby, xlab="First vector",
+  ylab="Second vector", pch=16, col="#EB811B",
+  cex=1.2)
+abline(v=mean(jacoby$x1), h=mean(jacoby$x2),
+  lty=2, lwd=2, col="#EB811B")
+```
+
+In **lattice** or trellis graphics, `xyplot()` is used for scatterplots; the formula interface is standard:
+
+```{r , echo = TRUE}
+library(lattice)
+xyplot(x2 ~ x1, jacoby)
+```
+
+Extra elements may be manipulated by modifying the panel functions, and will then propagate to all the panels if grouping is used:
+
+```{r , echo = TRUE}
+xyplot(x2 ~ x1, jacoby, panel = function(x, y, ...) {
+  panel.xyplot(x, y, ...)  
+  panel.abline(h = mean(y), v=mean(x), lty = 2,
+    lwd=2, col="#EB811B")  
+})
+```
+
+Syntax similar to that of **ggplot2** was introduced in **latticeExtra**, adding layers to the :
+
+```{r , echo = TRUE}
+xyplot(x2 ~ x1, jacoby) +
+  latticeExtra::layer(panel.abline(h=mean(y), v=mean(x),
+  lty = 2, lwd=2, col="#EB811B"))
+```
+
+The **ggplot2** package builds graphic output layer by layer, like base graphics, using `aes` --- aesthetics --- to say what is being shown. Starting with the `jacoby` `"data.frame"` object, we plot points with `geom_point` choosing variable `"x1"` by a placeholder `""` empty string on the other axis
+
+```{r , echo = TRUE}
+library(ggplot2)
+ggplot(jacoby) + geom_point(aes(x=x1, y="")) + xlab("")
+```
+
+Using `aes` on two numeric vectors puts the first vector on the horizontal (x) axis, and the second on the vertical (y) axis, to make a scatterplot
+
+```{r , echo = TRUE}
+ggplot(jacoby) + geom_point(aes(x1, x2))
+```
+
+- In these cases, the default plot shows points, which is reasonable here
+
+- The default glyph (symbol) is a small filled circle, the `size` argument lets us change its size, and its colour by `colour`
+
+- The display is annotated with value scales along the axes, and the axes are placed to add a little space outside the bounding box of the observations
+
+- The display includes axis labels, but does not include a title
+
+- In **ggplot2**, the functions output (summations of) grobs --- grid objects, with a `print` method
+
+
+
+Here, we'll change the axis labels, and symbol colour and size; these are also vectors, so can vary by observation or for groups of observations; we turn off the legend which is not relevant here
+
+```{r , echo = TRUE}
+p <- ggplot(jacoby) + geom_point(aes(x1, x2), 
+  colour="#EB811B", size=2) + xlab("First vector") +
+  ylab("Second vector") +
+  theme(legend.position = "none")
+p
+```
+
+We'll add lines with `geom_hline` and `geom_vline` showing the means of the two vectors:
+
+```{r , echo = TRUE}
+p + geom_hline(yintercept=mean(jacoby$x2), 
+  colour="#EB811B", linetype=2) +
+  geom_vline(xintercept=mean(jacoby$x1),
+  colour="#EB811B", linetype=2)
+```
+
+
+### Jacoby: synthetic data stripcharts
+
+
+We will use stripcharts (p. 6, pp. 30--32) to display all four vectors together on shared axes; now we see why the default symbol is a hollow circle
+
+
+```{r , echo = TRUE}
+stripchart(jacoby, pch=1, xlab="Data Values",
+  ylab="Variable", main="Scatterchart")
+```
+
+We can choose to jitter the symbols in the vertical dimension (adding small random amounts to 0) make the data easier to see
+
+
+```{r , echo = TRUE}
+stripchart(jacoby, method="jitter",
+  jitter=0.05, pch=1,
+  xlab="Data Values",
+  ylab="Variable",
+  main="Scatterchart with jittering")
+```
+
+Lattice stripplots do the same as stripcharts, using a formula interface rather than just an object to choose the correct method. To get started, we need to `stack` the data in "long" form. It is also possible to use `reshape2::melt`.
+
+```{r , echo = TRUE}
+jacobyS <- stack(jacoby)
+str(jacobyS, width=45, strict.width="cut")
+```
+
+The formula says that `ind` (y-axis) depends on `values` (x-axis)
+
+
+```{r , echo = TRUE}
+stripplot(ind ~ values, data=jacobyS, jitter.data=TRUE)
+```
+
+We will use stripcharts (p. 6, pp. 30--32) to display all four vectors together on shared axes
+
+
+```{r , echo = TRUE}
+#library(reshape2)
+#jacobyS <- melt(jacoby)
+p <- ggplot(jacobyS, aes(values, ind))
+p + geom_point() + ylab("")
+```
+
+We can choose to jitter the symbols in the vertical dimension (adding small random amounts to 0, setting the RNG seed for reproducibility) to make the data easier to see
+
+```{r , echo = TRUE}
+set.seed(1)
+p + geom_point() + ylab("") + 
+  geom_jitter(position=position_jitter(0.1))
+```
+
+### Jacoby: synthetic data boxplots
+
+
+
+The boxplot (pp. 38--43) display places all the vectors on the same axis, here the horizontal axis, places thicker lines at the medians, and boxes representing the interquartile ranges
+
+
+```{r , echo = TRUE}
+boxplot(jacoby)
+```
+
+The lattice version of boxplot is \code{bwplot} --- box and whiskers plot; again we stay with the counter-intuitive horizontal display
+
+
+```{r , echo = TRUE}
+bwplot(values ~ ind, data=jacobyS)
+```
+
+The boxplot (pp. 38--43) display places all the vectors on the same axis, here the horizontal axis, places thicker lines at the medians, and boxes representing the interquartile ranges
+
+```{r , echo = TRUE}
+p <- ggplot(jacobyS, aes(ind, values))
+p + geom_boxplot() + xlab("")
+```
+
+### Jacoby: synthetic data histograms
+
+Histograms (pp. 13--17) are very frequently used to examine data, and are directly comparable to thematic maps --- both need chosen break points, which have a start point, an end point, and intermediate points which may be evenly spaced, defining bins or intervals
+
+
+```{r , echo = TRUE}
+oldpar <- par(no.readonly=TRUE)
+par(mfrow=c(2,2))
+brks <- seq(15,55,by=5)
+for (i in 1:4) {
+ hist(jacoby[,i], breaks=brks, col="grey85",
+ xlab=paste("x", i, ": seq(15, 55, by=5)", sep=""),
+ freq=TRUE, main="")
+}
+par(oldpar)
+```
+
+```{r}
+oldpar <- par(no.readonly=TRUE)
+par(mfrow=c(2,2))
+for (i in 1:4) {
+ hist(jacoby[,i], breaks=seq(17.5,52.5,by=5), col="grey85",
+ xlab=paste("x", i, ": seq(17.5, 52.5, by=5)", sep=""), freq=TRUE, main="")
+}
+par(oldpar)
+```
+
+
+```{r}
+oldpar <- par(no.readonly=TRUE)
+par(mfrow=c(2,2))
+for (i in 1:4) {
+ hist(jacoby[,i], breaks=seq(17.5,52.5,by=2.5), col="grey85",
+ xlab=paste("x", i, ": seq(17.5, 52.5, by=2.5)", sep=""), freq=TRUE, main="")
+}
+par(oldpar)
+```
+
+
+The lattice \code{histogram} syntax is perhaps simpler, with default starting points and bin widths driven by the data
+
+
+```{r , echo = TRUE}
+histogram(~ values | ind, data=jacobyS,
+  breaks=seq(15,55,by=5), type="count",
+  index.cond=list(c(3,4,1,2)))
+```
+
+Histograms (pp. 13--17) are very frequently used to examine data, and are directly comparable to thematic maps --- both need chosen break points, which have a start point, an end point, and intermediate points which may be evenly spaced, defining bins or intervals; we use `facet_wrap()` to place the plots
+
+```{r , echo = TRUE}
+ggplot(jacobyS, aes(x=values)) + 
+  geom_histogram(breaks=seq(15, 55, by=5)) + 
+  facet_wrap(~ ind, ncol=2)
+```
+
+### Jacoby: synthetic data density plots
+
+When we realise that histograms can be constructed by choice of break points to create an impression that may (or may not) mislead, we can look at smoothed histograms (density plots (pp. 18--30)) as an alternative. Here we use a fixed bandwidth
+
+```{r , echo = TRUE}
+oldpar <- par(no.readonly=TRUE)
+par(mfrow=c(2,2))
+for (i in 1:4) {
+  plot(density(jacoby[,i], bw=1.5), main="",
+    xlim=c(15,55), ylim=c(0, 0.15))
+  rug(jacoby[,i], ticksize=0.07, lwd=2)
+  title(main=paste("Smoothed histogram of x",
+    i, sep=""))
+}
+par(oldpar)
+```
+
+The **lattice** approach again uses the formula interface, and a rug by default:
+
+```{r , echo = TRUE}
+densityplot(~ values | ind, data=jacobyS, bw=1.5,
+  index.cond=list(c(3,4,1,2)))
+```
+
+By default, ggplot facets fix the scales, but it isn't clear whether the bandwidth is fixed, and it does not seem to be reported
+
+```{r , echo = TRUE}
+ggplot(jacobyS, aes(x=values)) + 
+  geom_density(bw=1.5) + geom_rug() +
+  facet_wrap(~ ind, ncol=2) + 
+  xlim(c(15, 55))
+```
+
+### Jacoby: empirical cumulative distribution function
+
+
+Empirical cumulative distribution functions need no tuning arguments:
+
+```{r , echo = TRUE}
+oldpar <- par(no.readonly=TRUE)
+par(mfrow=c(2,2))
+for (i in 1:4) {
+  plot(ecdf(jacoby[,i]), main="",
+    xlim=c(15,55))
+  title(main=paste("ECDF of x",
+    i, sep=""))
+}
+par(oldpar)
+```
+
+We need **latticeExtra** to present the ECDF:
+
+```{r , echo = TRUE}
+library(latticeExtra)
+ecdfplot(~ values | ind, data=jacobyS,
+  index.cond=list(c(3,4,1,2)))
+detach(package:latticeExtra)
+```
+
+In ggplot, the `stat_ecdf()` operator is used
+
+```{r , echo = TRUE}
+ggplot(jacobyS, aes(x=values)) + 
+  stat_ecdf() +
+  facet_wrap(~ ind, ncol=2)
+```
+
+### Jacoby: quantile-quantile plots
+
+
+Quantile-quantile plots require the choice of a theoretical distribution, and as Deepayan Sarkar says, the ECDF plot uses a uniform theoretical distribution, so is a Uniform QQ plot in a different orientation:
+
+```{r , echo = TRUE}
+oldpar <- par(no.readonly=TRUE)
+par(mfrow=c(2,2))
+x <- qunif(ppoints(100))
+for (i in 1:4) {
+  qqplot(x=x, y=jacoby[,i])
+  title(main=paste("Uniform QQ of x",
+    i, sep=""))
+}
+par(oldpar)
+```
+
+The `qqnorm()` function gives a Normal QQ plot directly:
+
+```{r , echo = TRUE}
+oldpar <- par(no.readonly=TRUE)
+par(mfrow=c(2,2))
+for (i in 1:4) {
+  qqnorm(y=jacoby[,i], xlab="", ylab="",
+    ylim=c(15, 55), main="")
+  title(main=paste("Normal QQ of x",
+    i, sep=""))
+}
+par(oldpar)
+```
+
+In **lattice**, `qqmath()` takes a `distribution` argument:
+
+```{r , echo = TRUE}
+qqmath(~ values | ind, data=jacobyS,
+  distribution=qunif,
+  index.cond=list(c(3,4,1,2)))
+```
+
+so this reproduces `qqnorm`:
+
+```{r , echo = TRUE}
+qqmath(~ values | ind, data=jacobyS,
+  distribution=qnorm,
+  index.cond=list(c(3,4,1,2)))
+```
+
+In ggplot, the `stat_qq()` operator is used with a specified distribution function, here Uniform:
+
+```{r , echo = TRUE}
+ggplot(jacobyS, aes(sample=values)) + 
+  stat_qq(distribution=qunif) +
+  facet_wrap(~ ind, ncol=2)
+```
+
+and for Normal QQ plots
+
+```{r , echo = TRUE}
+ggplot(jacobyS, aes(sample=values)) + 
+  stat_qq(distribution=qnorm) +
+  facet_wrap(~ ind, ncol=2)
+```
+
+
+
+# Making simple maps
+
+There are a number of options for mapping to which we'll return later. We can use the `plot()` method in **sf** in base graphics:
+
+```{r}
+plot(st_geometry(my_data_5))
+```
+
+or **tmap** in grid graphics:
+
+```{r}
+library(tmap)
+(map_out <-  tm_shape(my_data_5) + tm_borders(col="grey"))
+```
+
+**tmap** also offers interactive mapping, but because this requires transformation of the object to geographical coordinates and on to Web Mercator, all the polygons need to be valid:
+
+```{r}
+all(st_is_valid(st_geometry(my_data_5)))
+```
+
+```{r}
+my_data_5b <- st_make_valid(my_data_5)
+```
+
+Now we can show the polygon borders on a web map:
+
+```{r}
+tmap_mode("view")
+tm_shape(my_data_5b) + tm_borders()
+```
+
+Returning to `"plot"` mode, we can modify the object 
+
+```{r}
+tmap_mode("plot")
+map_out + tm_text("NAME_PL", remove.overlap=TRUE)
+```
+
+An alternative using base graphics, where you overplot on the device rather than to the graphics object, is **mapsf**:
+
+```{r}
+library(mapsf)
+mf_map(my_data_5b)
+mf_label(my_data_5b, "NAME_PL", halo=TRUE, r=0.1)
+```
+
+For more flexibility in web mapping, **mapview** gives a lower-level interface to **leaflet**, but not as low-level as **leaflet** itself:
+
+```{r, eval=FALSE}
+library(mapview)
+mapviewOptions(fgb = FALSE)
+mapview(my_data_5b)
+```
+
+
+### R's `sessionInfo()`
+
+```{r sI, echo = TRUE}
+sessionInfo()
+```

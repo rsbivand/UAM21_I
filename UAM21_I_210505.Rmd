@@ -1,0 +1,925 @@
+---
+title: "Introduction to R (I)"
+author: "Roger Bivand"
+date: "Wednesday 5 May 2021"
+output: 
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+    toc_depth: 2
+theme: united
+bibliography: uam21.bib
+link-citations: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+### Copyright
+
+All the material presented here, to the extent it is original, is available under [CC-BY-SA](https://creativecommons.org/licenses/by-sa/4.0/). 
+
+### Required current contributed CRAN packages:
+
+I am running R 4.0.5, with recent `update.packages()`.
+
+```{r, echo=TRUE}
+needed <- c("zoo")
+```
+
+### Script
+
+Script and data at https://github.com/rsbivand/UAM21_I/raw/main/UAM21_I_210505.zip. Download to suitable location, unzip and use as basis.
+
+
+# Seminar introduction
+
+### This seminar/course 
+
+- Getting to know R: today we will start fairly thoroughly - probably a challenging beginning
+
+- Not speed-dating; starting *ab ovo* or rather *ab ova*: R has multiple mutations and is better seen as an ecosystem than as an inherently purposed system
+
+- Once we have the antecedents, we can see how they may affect data structures and their uses in R
+
+- Further, we'll be able to make informed choices with respect to use of data structures
+
+- This course is made up of integrated classes and lab sessions, with the tasks to be carried out tightly linked to the classes
+
+- It is important to participate in class and in the lab, both with the instructor and with other participants
+
+- If you get stuck, ask someone; everyone gets stuck, it isn't embarrassing. When someone else gets stuck, try to help; learning R is *not* like having your hair done
+
+### Reproducible research (R)
+
+- R is about reproducible research; we learn by doing, and by building on things others have done
+
+- We can only benefit from things others have done if they are available and if we can show that we get the same results - we can reproduce their work
+
+- Scripts (recipes) are the basis for this, and can be extended to literate programming by writing text explaining the steps taken 
+
+- The threshold to learning enough markdown to write documents showing what has been done is not high
+
+
+### Schedule
+
+- Today, background and basic structures; Tuesday, starting spatial data
+
+| Time | Topic |
+| :--- | :---- |
+|**Wednesday 5/5**|    |
+|09.00-12.00| What is R: programming language, community, ecosystem? What may it be used for in analysing spatial data in a social science setting? What are the basic data structures in R? How can we start writing an R markdown notebook? How to access help in using R? How to use built-in data sets and why? How to write reproducible examples? What can we learn from code examples? How can R help us in furthering reproducible research? |
+|13.00-16.00| What kinds of  data objects are used in R? What is the structure of a data.frame? What is a list object? What kinds of data can be contained in data objects? |
+|**Thursday 6/5**|    |
+|09.00-12.00| How may we read data into R? From files, including spatial data files, and from online resources? How can we choose between output formats for notebooks and other output media? How can one choose between the basic graphics functions and devices in R? |
+|13.00-16.00| When our data include spatial data objects, in which ways may they be represented in R? How can one make simple thematic maps using R? (sf, stars, tmap) |
+|**Monday 10/5**|    |
+|09.00-12.00| May we use R "like a GIS"? How may we structure temporal and spatio-temporal data? Closer introduction to R-spatial (sf, stars, gdalcubes, terra, GDAL, GEOS) |
+|13.00-16.00| Planar and spherical geometries, projections and transformations (s2, PROJ, tmap, mapview, leaflet, geogrid) |
+|**Tuesday 11/5**|    |
+|09.00-12.00| What forms of expression and colour scales are available in R? How can we use class intervals and colour palettes to communicate? Rather than "lying with maps", how can we explore the impact of choices made in thematic cartography? How can we condition on continuous or discrete variables to permit visual comparison? How can we combine multiple graphical elements in data visualization? (classInt, sf, tmap, mapsf) |
+|13.00-16.00| Doing things with spatial data ... (osmdata, ...) |
+|**Thursday 20/11**|    |
+|09.00-12.00| Presentations/consultations/discussion |
+|13.00-16.00| Presentations/consultations/discussion |
+
+
+- The underlying aim: to survey contemporary approaches to spatial data structures in R and their handling in context
+
+- Why in context? Because without the context, some alternatives may seem to be closed off by the presentation narrative
+
+
+### Learning resources
+
+- Needs for learning resources, and ways of making use of them, vary greatly between participants
+
+- There are lots of books, but many now present one-size-fits-all solutions that may not be a best fit
+
+- Some resources in Polish may be found on [Przemysław Biecek's website](http://biecek.pl/R/), including two chapters of his introductory book and ebook versions of course materials
+
+- Other materials are described on the [R site](https://www.r-project.org/other-docs.html) and on [CRAN](https://cran.r-project.org/other-docs.html)
+
+- RStudio also provides an [online learning](https://www.rstudio.com/online-learning/#R) page, with a number of options, no longer like Datacamp, but still like **swirl**
+
+- R is distributed from [mirrors](https://cran.r-project.org/mirrors.html) of the comprehensive R archive network (CRAN)
+
+- The [cloud mirror](https://cloud.r-project.org/)  is the easiest, but a local server may be faster
+
+- [RStudio](https://www.rstudio.com/products/rstudio/download/) can be downloaded and installed after R has been installed
+
+- R comes with many contributed packages - the ones we need are on CRAN, which lists them providing information; we'll get back to contributed packages later
+
+
+# Basic data structures
+
+## R as a calculator
+
+
+R can be a calculator, with output printed by the default method
+
+
+```{r calc2, echo = TRUE}
+2+3
+7*8
+3^2
+log(1)
+log10(10)
+```
+
+
+We could print explicitly:
+
+
+```{r calc1, echo = TRUE}
+print(2+3)
+print(sqrt(2))
+print(sqrt(2), digits=10)
+print(10^7)
+```
+
+
+Exceptions also happen (Inf is infinity, NaN is Not a Number):
+
+
+```{r calc3, echo = TRUE}
+log(0)
+sqrt(-1)
+1/0
+0/0
+```
+
+## Assignment and object names
+
+
+We assign results of operations and functions to named objects with `<-`, or equivalently `=`; names begin with letters or a dot:
+
+
+```{r ass1, echo = TRUE}
+a <- 2+3
+a
+is.finite(a)
+a <- log(0)
+is.finite(a)
+```
+
+## Vectors
+
+
+The printed results are prepended by a curious `[1]`; all these results are unit length vectors. We can combine several objects with `c()`:
+
+
+```{r vect1, echo = TRUE}
+a <- c(2, 3)
+a
+sum(a)
+str(a)
+aa <- rep(a, 50)
+aa
+```
+
+The single square brackets `[]` are used to access or set elements of vectors (the colon `:` gives an integer sequence); negative indices drop elements:
+
+
+```{r vect2, echo = TRUE}
+length(aa)
+aa[1:10]
+sum(aa)
+sum(aa[1:10])
+sum(aa[-(11:length(aa))])
+```
+
+### Arithmetic under the hood
+
+Infix syntax is just a representation of the actual underlying forms
+
+```{r vect2a, echo = TRUE}
+a[1] + a[2]
+sum(a)
+`+`(a[1], a[2])
+Reduce(`+`, a)
+```
+
+
+We've done arithmetic on scalars, we can do vector-scalar arithmetic:
+
+
+```{r vect3, echo = TRUE}
+sum(aa)
+sum(aa+2)
+sum(aa)+2
+sum(aa*2)
+sum(aa)*2
+```
+
+
+But vector-vector arithmetic poses the question of vector length and recycling (the shorter one gets recycled):
+
+
+```{r vect4, echo = TRUE}
+v5 <- 1:5
+v2 <- c(5, 10)
+v5 * v2
+v2_stretch <- rep(v2, length.out=length(v5))
+v2_stretch
+v5 * v2_stretch
+```
+
+### Missing values
+
+
+In working with real data, we often meet missing values, coded by NA meaning Not Available:
+
+
+```{r NA, echo = TRUE}
+anyNA(aa)
+is.na(aa) <- 5
+aa[1:10]
+anyNA(aa)
+sum(aa)
+sum(aa, na.rm=TRUE)
+```
+
+## Exceptions
+
+- We've looked at the simple stuff, when arithmetic and assignment happens as expected
+
+- A strength of R is the handling of exceptions, which do happen when handling real data, which not infrequently differs from what we thought it was
+
+- Wanting a result from data is reasonable when the data meet all the requirements
+
+- If the data do not meet the requirements, we may get unexpected results, warnings or even errors: most often we need to go back and check our input data
+
+### Checking data
+
+
+One way to check our input data is to print in the console - this works with small objects as we've seen, but for larger objects we need methods:
+
+
+```{r check1, echo = TRUE}
+big <- 1:(10^5)
+length(big)
+head(big)
+str(big)
+summary(big)
+```
+
+## Basic vector types
+
+- There are `length`, `head`, `str` (*str*ucture) and `summary` methods for many types of objects
+
+- `str` also gives us a hint of the type of object and its dimensions
+
+- We've seen a couple of uses of `str` so far, `str(a)` was `num` and `str(big)` was `int`, what does this signify?
+
+- They are both numbers, but of different types
+
+- There are six basic vector types: list, integer, double, logical, character and [complex](http://www.johnmyleswhite.com/notebook/2009/12/18/using-complex-numbers-in-r/)
+
+- The derived type factor (to which we return shortly) is integer with extra information
+
+- `str` reports these as int, num, logi, chr and cplx, and lists are enumerated recursively
+
+- In RStudio you see more or less the `str` output in the environment pane as Values in the list view; the grid view adds the object size in memory
+
+- From early S, we have `typeof` and `storage.mode` (including single precision, not used in R) - these are important for interfacing C, C++, Fortran and other languages
+
+- Beyond this is `class`, but then the different class systems (S3 and formal S4) complicate things
+
+- Objects such as vectors may also have attributes in which their class and other information may be placed
+
+- Typically, a lot of use is made of attributes to squirrel away strings and short vectors
+
+### Testing types
+
+
+`is` methods are used to test types of objects; note that integers are also seen as numeric:
+
+
+```{r coerce1, echo = TRUE}
+set.seed(1)
+x <- runif(50, 1, 10)
+is.numeric(x)
+y <- rpois(50, lambda=6)
+is.numeric(y)
+is.integer(y)
+xy <- x < y
+is.logical(xy)
+```
+
+
+### Coercion between types
+
+
+`as` methods try to convert between object types and are widely used:
+
+
+```{r coerce2, echo = TRUE}
+str(as.integer(xy))
+str(as.numeric(y))
+str(as.character(y))
+str(as.integer(x))
+```
+
+
+
+
+## Factor, time, encoding
+
+
+### What is a factor?
+
+- Sometimes character values are just that, not categorical values to be used in handling data
+
+- Factors are meant to be used for categories, and are stored as an integer vector with values pointing to places in a character vector of levels stored as an attribute of the object
+
+- Character data are read into R by default as factors, because that is the most usual scenario
+
+- Having a pre-defined set of indices to level values is very useful for visualization and analysis
+
+- Ordered factors can be used for ordinal data
+
+
+### Factors
+
+
+We can retrieve to input character vector by indexing the levels:
+
+
+```{r factor1, echo = TRUE}
+gen <- c("female", "male", NA)
+fgen <- factor(gen)
+str(fgen)
+nlevels(fgen)
+levels(fgen)
+as.integer(fgen)
+levels(fgen)[as.integer(fgen)]
+```
+
+### Ordered factors
+
+
+Ordered factors do not sort the levels alphabetically:
+
+
+```{r factor2, echo = TRUE}
+status <- c("Lo", "Hi", "Med", "Med", "Hi")
+ordered.status <- ordered(status, levels=c("Lo", "Med", "Hi"))
+ordered.status
+str(ordered.status)
+table(status)
+table(ordered.status)
+```
+
+### Encodings
+
+
+So far, we've only met ASCII 7-bit characters, but in many situations, we need more. The default encoding will depend on the locale in which your R session is running - this is my locale:
+
+
+```{r , echo = TRUE}
+strsplit(Sys.getlocale(), ";")
+```
+
+
+In UTF-8, non-ASCII characters are encoded by an 8th bit flag, and a second byte with the value; in codepage and ISO 8-bit character sets, the 8th bit is part of the character, but differs from set to set:
+
+
+```{r , echo = TRUE}
+V5 <- c("ł", "ę", "ą", "Ł")
+sapply(V5, charToRaw)
+V6 <- iconv(V5, to="CP1250")
+sapply(V6, charToRaw)
+```
+
+
+
+### Date/time vectors
+
+
+An aside before we proceed: handling temporal data is confusing. Time is multifaceted, where two of the variants are instantaneous time with data at that time point and interval time with data aggregated over the interval:
+
+
+```{r , echo = TRUE}
+now <- Sys.time()
+now
+class(now)
+as.Date(now)
+unclass(now)
+```
+
+
+One representation is in seconds since the epoch (with decimal parts of a second), another is in components also including important time zone information (time zone listings are updated regularly):
+
+
+```{r , echo = TRUE}
+str(unclass(as.POSIXlt(now)))
+```
+
+
+In the social sciences, we are more likely to need annual or monthly representations, but it is useful to be aware that a year can mean status at year end, or an aggregated value accummulated during an interval.
+
+
+```{r , echo = TRUE}
+suppressMessages(library(zoo))
+as.yearmon(now)
+as.yearqtr(now)
+as.Date("2016-03-01") - 1 # day
+as.Date("2018-03-01") - 1 # day
+```
+
+
+```{r , echo = TRUE}
+seq(as.Date(now), as.Date(now)+12, length.out=4)
+```
+
+
+# R itself
+
+- R is as small or large as you like, and runs in many different configurations (no smartphones); the core is written in C
+
+- The language has developed from S written at Bell Labs NJ, where Unix, C, C++, and scripting technologies were created in the 1970s and 1980s
+
+- Bell Labs statisticians had a strong focus on graphics and exploratory data analysis from the beginning
+
+- Many underlying abstractions were established by 1988 and 1992; we'll get to the `data.frame` and `formula` abstractions later
+
+- An R session records its history - all that is entered at the console prompt - and a workspace containing objects
+
+- On exiting a session, the history may be saved to a history file, and the workspace may be saved to an RData file; history and chosen objects (or all objects) may be saved manually before exit
+
+- The workspace is in the memory of the computer, and R itself expects there to be enough memory for all of the data, intermediate and final results
+
+- Modern R is 64-bit, so limits are most often set by the computer hardware; use can be made of multiple cores to compute in parallel
+
+### Using Markdown in R
+
+- In the RStudio Interactive Development Environment (IDE), it is convenient to use R Markdown to write notebooks (annotated scripts)
+
+- Chunks of code are run in sequence and may be echoed in the output
+
+- Output is shown in its right place, including graphics output
+
+- The document may also be converted to a script, mirroring the weave/tangle - knit/purl duality
+
+- This presentation is written in Markdown, as we'll see ...
+
+
+### History of R and its data structures
+
+- [Rasmus Bååth](http://www.sumsar.net/blog/2014/11/tidbits-from-books-that-defined-s-and-r/) has a useful blog piece on R's antecedents in the S language
+
+- Something similar is present in the second chapter of @chambers:16, from the viewpoint of one of those responsible for the development of the S language
+
+- In addition to S, we need to take [SICP and Scheme](http://sarabander.github.io/sicp/html/index.xhtml) into account [@sicp2e], as described by @ihaka:1996 and @wickham:14
+
+- Finally, LispStat and its creators have played and continue to play a major role in developing R @Tierney1990, @Tierney1996, @JSSv013i09
+
+
+
+## Early R was Scheme via SICP
+
+![Ross Ihaka's description](../pix/ihaka10.png)
+
+([JSM talk](https://www.stat.auckland.ac.nz/%7Eihaka/downloads/JSM-2010.pdf))
+
+
+### Brown Books
+
+S: An Interactive Environment for Data Analysis and Graphics, A.K.A. the Brown Book [@becker+chambers:84]; Extending the S System [@becker+chambers:85]
+
+
+![Brown Books](../pix/S2_books.png)
+
+
+### Blue and White Books
+
+The New S Language: A Programming Environment for Data Analysis and Graphics, A.K.A. the Blue Book [@R:Becker+Chambers+Wilks:1988]; Statistical Models in S, A.K.A. the White Book [@R:Chambers+Hastie:1992]
+
+![Blue and White Books](../pix/S3_books.png)
+
+### Green Book
+
+Programming with Data: A Guide to the S Language, A.K.A. the Green Book [@R:Chambers:1998]; S Programming [@R:Venables+Ripley:2000]
+
+![Green Book](../pix/S4_books.png)
+
+### S2 to S3 to S4
+
+- The S2 system was described in the Brown Book, S3 in the Blue Book and completed in the White Book, finally S4 in the Green Book
+
+- The big advance from S2 to S3 was that users could write functions; that data.frame objects were defined; that formula objects were defined; and that S3 classes and method dispatch appeared
+
+- S4 brought connections and formal S4 classes, the latter seen in R in the **methods** package ([still controversial](https://stat.ethz.ch/pipermail/r-devel/2017-December/075304.html))
+
+- [S-PLUS](https://en.wikipedia.org/wiki/S-PLUS) was/is the commercial implementation of [S](https://en.wikipedia.org/wiki/S_(programming_language)) and its releases drove S3 and S4 changes
+
+## S, Bell Labs, S-PLUS
+
+- S was a Bell Labs innovation, like Unix, C, C++, and many interpreted languages (like AWK); many of these share key understandings
+
+- Now owned by Nokia, previously Alcatel-Lucent, Lucent, and AT&T
+
+- Why would a telecoms major (AT&T) pay for fundamental research in computer science and data analysis (not to sell or market other products better)?
+
+- Some Green Book examples are for quality control of telecoms components
+
+### S-PLUS and R
+
+- S-PLUS was quickly adopted for teaching and research, and with S3, provided extensibility in the form of libraries
+
+- Most links have died by now, but see this [FAQ](http://ftp.uni-bayreuth.de/math/statlib/S/FAQ) for a flavour - there was a lively community of applied statisticians during the 1990s
+
+- S built on a long tradition of documentation through examples, with use cases and data sets taken from the applied statistical literature; this let users compare output with methods descriptions
+
+- ... so we get to R
+
+
+## and what about LispStat?
+
+- Luke Tierney was in R core in 1997, and has continued to exert clear influence over development
+
+- Because R uses a Scheme engine, similar to Lisp, under the hood, his insight into issues like the garbage collector, namespaces, byte-compilation, serialization, parallelization, and now [ALTREP](http://blog.revolutionanalytics.com/2018/04/r-350.html) has been crucial ([see also the proposal by Luke Tierney, Gabe Becker and Tomas Kalibera](https://svn.r-project.org/R/branches/ALTREP/ALTREP.html))
+
+- Many of these issues involve the defensive copy on possible change policy involved in lazy evaluation, which may lead to multiple redundant copies of data being present in memory
+
+- Luke Tierney and Brian Ripley have fought hard to let R load fast, something that is crucial to ease the use of R on multicore systems or inside databases
+
+
+
+## Roundup: history
+
+- Many sources in applied statistics with an S-like syntax but Lisp/Scheme-like internals, and sustained tensions between these
+
+- Many different opinions on prefered ways of structuring data and data handling, opening for adaptations to different settings
+
+- More recently larger commercial interest in handling large input long data sets, previously also present; simulations also generate large output data sets; bioinformatics both wide and long
+
+- Differing views of the world in terms of goals and approaches
+
+- Differences provide ecological robustness
+
+
+
+# Self-help in R
+
+## Help and examples
+
+- In RStudio, the Help tab in the lower right pane (default position) gives access to the R manuals and to the installed packages help pages through the Packages link under Reference
+
+- In R itself, help pages are available in HTML (browser) and text form; `help.start()` uses the default browser to display the Manuals, Reference and Miscellaneous Material sections in RStudio's home help tab
+
+- The search engine can be used to locate help pages, but is not great if many packages are installed, as no indices are stored 
+
+- The help system needs to be learned in order to provide the user with ways of progressing without wasting too much time
+
+### Base help system
+
+- The base help system does not tell you how to use R as a system, about packages not installed on your machine, or about R as a community
+
+- It does provide information about functions, methods and (some) classes in base R and in contributed packages installed on your machine
+
+- We'll cover these first, then go on to look at vignettes, R Journal, task views, online help pages, and the blog aggregator
+
+- There are different requirements with regard to help systems - in R, the help pages of base R are expected to be accurate although terse
+
+### Help pages
+
+- Each help page provides a short description of the functions, methods or classes it covers; some pages cover more than one such
+
+- Help pages are grouped by package, so that the browser-based system is not easy to browse if you do not know which package a function belongs to
+
+- The usage of the function is shown explicitly, including any defaults for arguments to functions or methods
+
+- Each argument is described, showing names and types; in addition details of the description are given, together with the value returned
+
+### Interactive use of help pages
+
+- Rather than starting from the packages hierarchy of help pages, users most often use the `help` function
+
+- The function takes the name of of the function about which we need help, the name may be in quotation marks; class names contain a hyphen and must be quoted
+
+- Instead of using say `help(help)`, we can shorten to the question mark operator: `?help`
+
+- Occasionally, several packages offer different functions with the same name, and we may be offered a choice; we can disambiguate by putting the package name and two colons before the function name
+
+### Function arguments
+
+- In the usage section, function arguments are shown by name and order; the `args` function returns information
+
+- In general, if arguments are given by name, the order is arbitrary, but if names are not used at least sometimes, order matters
+
+- Some arguments do not have default values and are probably required, although some are guessed if missing
+
+- Being explicit about the names of arguments and the values they take is helpful in scripting and reproducible research
+
+- The ellipsis `...` indicates that the function itself examines objects passed to see what to do
+
+### Tooltips and completion
+
+- The regular R console does not provide tooltips, that is a bubble first offering alternative function or object names as you type, then lists of argument names
+
+- RStudio, like many IDEs, does provide this, controlled by Tools -> Global options -> Code -> Completion (by default it is operative)
+
+- This may be helpful or not, depending on your style of working; if you find it helpful, fine, if not, you can make it less invasive under Global options
+
+- Other IDE have also provided this facility, which builds directly on the usage sections of help pages of functions in installed packages
+
+### Coherence code/documentation
+
+- Base R has a set of checks and tests that ensure coherence between the code itself and the usage sections in help pages
+
+- These mechanisms are used in checking contributed packages before they are released through the the archive network; the description of arguments on help pages must match the function definition
+
+- It is also possible to generate help pages documenting functions automatically, for example using the **roxygen2** package
+
+- It is important to know that we can rely on this coherence
+
+
+### Returned values
+
+- The objects returned by functions are also documented on help pages, but the coherence of the description with reality is harder to check
+
+- This means that use of `str` or other functions or methods may be helpful when we want to look inside the returned object
+
+- The form taken by returned values will often also vary, depending on the arguments given
+
+- Most help pages address this issue not by writing more about the returned values, but by using the examples section to highlight points of potential importance for the user
+
+### Examples
+
+- Reading the examples section on the help page is often enlightening, but we do not need to copy and paste
+
+- The `example` function runs those parts of the code in the examples section of a function that are not tagged don't run - this can be overridden, but may involve meeting conditions not met on your machine
+
+- This code is run nightly on CRAN servers on multiple operating systems and using released, patched and development versions of R, so checking both packages and the three versions of R
+
+- Some examples use data given verbatim, but many use built-in data sets; most packages also provide data sets to use for running examples
+
+## Built-in data sets
+
+- This means that the examples and the built-in data sets are a most significant resource for learning how to solve problems with R
+
+- Very often, one recognizes classic textbook data sets from the history of applied statistics; contemporary text book authors often publish collections of data sets as packages on CRAN
+
+- The built-in data sets also have help pages, describing their representation as R objects, and their licence and copyright status
+
+- These help pages also often include an examples section showing some of the analyses that may be carried out using them
+
+- One approach that typically works well when you have a data set of your own, but are unsure how to proceed, is to find a built-in data set that resembles the real one, and play with that first
+
+- The built-in data sets are often quite small, and if linked to text books, they are well described there as well as in the help pages
+
+- By definition, the built-in data sets do not have to be imported into R, as they are almost always stored as files of R objects
+
+- In some cases, these data sets are stored in external file formats, most often to show how to read those formats
+
+- The built-in data sets in the base **datasets** package are in the search path, but data sets in other packages should be loaded using the `data()` function:
+
+```{r, echo = TRUE}
+str(Titanic)
+```
+
+```{r, echo = TRUE}
+library(MASS)
+data(deaths)
+str(deaths)
+```
+
+## Vignettes
+
+- At about the time that literate programming arrived in R with `Sweave` and `Stangle` - we mostly use **knitr** now - the idea arose of supplementing package documentation with example workflows
+
+- Vignettes are PDF documents with accompanying runnable R code that describe how to carry out particular sequences of operations
+
+- The RStudio packages help tab package index file shows user guides, package vignettes and other documentation
+
+- The `vignette()` function can be used to list vignettes by installed package, and to open the chosen vignette in a PDF reader
+
+- A very typical way of using vignettes on a machine with enough screen space is to read the document and run the code from the R file at the same time
+
+- Assign the output of `vignette` to an object; the `print` method shows the PDF or HTML, the `edit` method gives direct access to the underlying code for copy and paste
+
+- The help system in RStudio provides equivalent access to vignette documents and code
+
+- Papers about R contributed packages published in the Journal of Statistical Software and the R Journal are often constructed in this way too
+
+
+### Task views
+
+- As R has developed, the number of packages on CRAN has [grown](http://blog.revolutionanalytics.com/2016/04/a-segmented-model-of-cran-package-growth.html) (other packages are on BioConductor and github)
+
+- [CRAN task views](https://cloud.r-project.org/web/views/) were introduced to try to provide some subject area guidance
+
+- They remain terse, and struggle to keep up, but are still worth reviewing
+
+- Note that those working in different subject areas often see things rather differently, leading to subject specific treatment of intrinsically similar themes
+
+### Online help pages
+
+- The help system and vignettes were designed to be used offline, so that the versions of R and installed packages matched the documentation
+
+- If you search online for information about functions in R or in contributed packages, you often reach [inside-R](http://www.inside-r.org/), sponsored by Revolution Analytics
+
+- Help pages may also be viewed online from your chosen CRAN mirror; package pages provide these (Reference manual) and vignettes as links
+
+- Remember to check that the versions of your installed software and the online documentation are the same
+
+## R communities
+
+- The R community has become a number of linked communities rather than a coherent and hierarchical whole
+
+- As in many open source projects, the R project is more basaar than cathedral; think of niches in ecosystems with differing local optima in contrast to a master plan
+
+- One style is based on mailing lists, in which an issue raised by an original poster is resolved later in that thread
+
+- Another style is to use online fora, such as StackOverflow, which you need to visit rather than receiving messages in your inbox
+
+- There are now many blogs involving the use of R, fortunately aggregated at [R-bloggers](http://www.r-bloggers.com/), where other resources may also be found
+
+- New aggregated blog topics are linked to a Twitter account, so if you want, you too can be bombarded by notifications
+
+- These are also a potential source of project ideas, especially because some claims should be challenged
+
+- [R Users Groups](http://blog.revolutionanalytics.com/local-r-groups.html) and [R Ladies](https://rladies.org/) provide face-to-face meeting places that many value
+
+### R Consortium
+
+- R started as a teaching tool for applied statistics, but this community model has been complemented by others
+
+- R is now widely used in business, public administration and voluntary organizations for data analysis and visualization
+
+- The [R Consortium](https://www.r-consortium.org/) was created in 2015 as a vehicle for companies with relationships to R
+
+- R itself remains under the control of the [R Foundation](https://www.r-project.org/foundation/), which is still mostly academic in flavour
+
+
+
+# Combining data structures
+
+## List, data.frame, matrix, array
+
+
+### The data frame object
+
+- First, let us see that is behind the `data.frame` object: the `list` object
+
+- `list` objects are vectors that contain other objects, which can be addressed by name or by 1-based indices
+
+- Like the vectors we have already met, lists can be  accessed and manipulated using square brackets `[]`
+
+- Single list elements can be accessed and manipulated using double square brackets `[[]]`
+
+### List objects
+
+
+Starting with four vectors of differing types, we can assemble a list object; as we see, its structure is quite simple. The vectors in the list may vary in length, and lists can (and do often) include lists
+
+
+```{r , echo = TRUE}
+V1 <- 1:3
+V2 <- letters[1:3]
+V3 <- sqrt(V1)
+V4 <- sqrt(as.complex(-V1))
+L <- list(v1=V1, v2=V2, v3=V3, v4=V4)
+```
+
+
+
+```{r , echo = TRUE}
+str(L)
+L$v3[2]
+L[[3]][2]
+```
+
+### Data Frames
+
+
+Our `list` object contains four vectors of different types but of the same length; conversion to a `data.frame` is convenient. Note that by default strings are converted into factors:
+
+
+```{r , echo = TRUE}
+DF <- as.data.frame(L)
+str(DF)
+DF <- as.data.frame(L, stringsAsFactors=FALSE)
+str(DF)
+```
+
+
+We can also provoke an error in conversion from a valid `list` made up of vectors of different length to a `data.frame`:
+
+
+```{r , echo = TRUE}
+V2a <- letters[1:4]
+V4a <- factor(V2a)
+La <- list(v1=V1, v2=V2a, v3=V3, v4=V4a)
+DFa <- try(as.data.frame(La, stringsAsFactors=FALSE), silent=TRUE)
+message(DFa)
+```
+
+
+We can access `data.frame` elements as `list` elements, where the `$` is effectively the same as `[[]]` with the list component name as a string:
+
+
+```{r , echo = TRUE}
+DF$v3[2]
+DF[[3]][2]
+DF[["v3"]][2]
+```
+
+
+Since a `data.frame` is a rectangular object with named columns with equal numbers of rows, it can also be indexed like a matrix, where the rows are the first index and the columns (variables) the second:
+
+
+```{r , echo = TRUE}
+DF[2, 3]
+DF[2, "v3"]
+str(DF[2, 3])
+str(DF[2, 3, drop=FALSE])
+```
+
+
+If we coerce a `data.frame` containing a character vector or factor into a matrix, we get a character matrix; if we extract an integer and a numeric column, we get a numeric matrix.
+
+
+```{r , echo = TRUE}
+as.matrix(DF)
+as.matrix(DF[,c(1,3)])
+```
+
+The fact that `data.frame` objects descend from `list` objects is shown by looking at their lengths; the length of a matrix is not its number of columns, but its element count:
+
+
+```{r , echo = TRUE}
+length(L)
+length(DF)
+length(as.matrix(DF))
+```
+
+
+There are `dim` methods for `data.frame` objects and matrices (and arrays with more than two dimensions); matrices and arrays are seen as vectors with dimensions; `list` objects have no dimensions:
+
+
+```{r , echo = TRUE}
+dim(L)
+dim(DF)
+dim(as.matrix(DF))
+```
+
+
+```{r , echo = TRUE}
+str(as.matrix(DF))
+```
+
+
+
+`data.frame` objects have `names` and `row.names`, matrices have `dimnames`, `colnames` and `rownames`; all can be used for setting new values:
+
+
+```{r , echo = TRUE}
+row.names(DF)
+names(DF)
+names(DF) <- LETTERS[1:4]
+names(DF)
+str(dimnames(as.matrix(DF)))
+```
+
+
+R objects have attributes that are not normally displayed, but which show their structure and class (if any); we can see that `data.frame` objects are quite different internally from matrices:
+
+
+```{r , echo = TRUE}
+str(attributes(DF))
+str(attributes(as.matrix(DF)))
+```
+
+
+If the reason for different vector lengths was that one or more observations are missing on that variable, `NA` should be used; the lengths are then equal, and a rectangular table can be created:
+
+
+```{r , echo = TRUE}
+V1a <- c(V1, NA)
+V3a <- sqrt(V1a)
+La <- list(v1=V1a, v2=V2a, v3=V3a, v4=V4a)
+DFa <- as.data.frame(La, stringsAsFactors=FALSE)
+str(DFa)
+```
+
+Encodings do not affect representation within the R workspace, but are a real problem for reading and writing data:
+
+
+```{r , echo = TRUE}
+La <- list(v1=V1a, v2=V2a, v3=V3a, v4=V4a, v5=V5, v6=V6)
+DFa <- as.data.frame(La)
+str(DFa)
+```
+
+
+
+### R's `sessionInfo()`
+
+```{r sI, echo = TRUE}
+sessionInfo()
+```
