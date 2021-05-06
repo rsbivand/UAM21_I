@@ -14,3 +14,11 @@ theme: united
 ### III (10/5) [workshop document](https://rsbivand.github.io/UAM21_I/UAM21_I_210510.html)
 
 ### IV (11/5) [workshop document](https://rsbivand.github.io/UAM21_I/UAM21_I_210511.html)
+
+Installing packages not yet on your system:
+
+```
+inst <- match(needed, .packages(all=TRUE))
+need <- which(is.na(inst))
+if (length(need) > 0) install.packages(needed[need])
+```

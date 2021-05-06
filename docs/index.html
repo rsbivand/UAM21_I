@@ -182,6 +182,10 @@ pre code {
 </div>
 <div id="iv-115-workshop-document" class="section level3">
 <h3>IV (11/5) <a href="https://rsbivand.github.io/UAM21_I/UAM21_I_210511.html">workshop document</a></h3>
+<p>Installing packages not yet on your system:</p>
+<pre><code>inst &lt;- match(needed, .packages(all=TRUE))
+need &lt;- which(is.na(inst))
+if (length(need) &gt; 0) install.packages(needed[need])</code></pre>
 </div>
 
 
