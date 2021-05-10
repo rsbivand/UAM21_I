@@ -1,0 +1,183 @@
+---
+title: "Introduction to R (IV)"
+author: "Roger Bivand"
+date: "Tuesday 11 May 2021"
+output: 
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+    toc_depth: 2
+theme: united
+bibliography: uam21.bib
+link-citations: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Copyright
+
+All the material presented here, to the extent it is original, is available under [CC-BY-SA](https://creativecommons.org/licenses/by-sa/4.0/). 
+
+
+### Schedule
+
+- Today, more maps and doing things with spatial data
+
+| Time | Topic |
+| :--- | :---- |
+|**Wednesday 5/5**|    |
+|09.00-12.00| What is R: programming language, community, ecosystem? What may it be used for in analysing spatial data in a social science setting? What are the basic data structures in R? How can we start writing an R markdown notebook? How to access help in using R? How to use built-in data sets and why? How to write reproducible examples? What can we learn from code examples? How can R help us in furthering reproducible research? |
+|13.00-16.00| What kinds of  data objects are used in R? What is the structure of a data.frame? What is a list object? What kinds of data can be contained in data objects? |
+|**Thursday 6/5**|    |
+|09.00-12.00| How may we read data into R? From files, including spatial data files, and from online resources? How can we choose between output formats for notebooks and other output media? How can one choose between the basic graphics functions and devices in R? |
+|13.00-16.00| When our data include spatial data objects, in which ways may they be represented in R? How can one make simple thematic maps using R? (sf, stars, tmap) |
+|**Monday 10/5**|    |
+|09.00-12.00| How can we use class intervals and colour palettes to communicate? Rather than "lying with maps", how can we explore the impact of choices made in thematic cartography? How can we condition on continuous or discrete variables to permit visual comparison? How can we combine multiple graphical elements in data visualization? (classInt, sf, tmap, mapsf) May we use R "like a GIS"? How may we structure temporal and spatio-temporal data? Closer introduction to R-spatial (sf, stars, gdalcubes, terra, GDAL, GEOS) |
+|13.00-16.00| Planar and spherical geometries, projections and transformations (s2, PROJ, tmap, mapview, leaflet, geogrid) |
+|**Tuesday 11/5**|    |
+|09.00-12.00| Doing things with spatial data ... (osmdata, ...)  |
+|13.00-16.00| Doing things with spatial data ... (osmdata, ...) |
+|**Thursday 20/11**|    |
+|09.00-12.00| Presentations/consultations/discussion |
+|13.00-16.00| Presentations/consultations/discussion |
+
+# Vector extraction from Corine GeoTiff
+
+```{r, eval=FALSE}
+library(stars)
+CR <- read_stars("U2018_CLC2018_V2020_20u1.tif", proxy=TRUE)
+library(sf)
+CR_crs <- st_crs(CR)
+```
+
+
+```{r, eval=FALSE}
+cats <- foreign::read.dbf("U2018_CLC2018_V2020_20u1.tif.vat.dbf", as.is=TRUE)
+cats1 <- cats[,c(1, 3)]
+cats2 <- cats[,c(1, 4:6)]
+catnms <- cats1$LABEL3
+catnms[4] <- "Road and rail networks"
+catnms[19] <- "Annual crops - permanent crops"
+catnms[21] <- "Agriculture - natural vegetation"
+ncats <- length(catnms)
+```
+
+
+
+```{r, eval=FALSE}
+library(rgugik)
+gn <- as.data.frame(commune_names)
+gn1 <- gn
+geoms <- vector(mode="list", nrow(gn1))
+names(geoms) <- gn1$TERYT
+empties <- vector(mode="logical", nrow(gn1))
+names(empties) <- gn1$TERYT
+areas_LAEA <- numeric(nrow(gn1))
+tallies <- matrix(0L, nrow=nrow(gn1), ncol=ncats)
+colnames(tallies) <- cats1$Value
+rownames(tallies) <- gn1$TERYT
+if (!dir.exists("output_tifs")) dir.create("output_tifs")
+```
+
+
+
+```{r, eval=FALSE}
+for (this in seq_along(gn1$TERYT)) {
+  this_gm <- borders_get(TERYT=gn1$TERYT[this])
+  cat("getting:", gn1$TERYT[this], "\n")
+  geoms[[this]] <- st_geometry(this_gm)
+  empties[this] <- any(st_is_empty(this_gm))
+  if (!empties[this]) {
+    vvpath <- file.path("output_tifs", substring(gn1$TERYT[this], 1, 2))
+    if (!dir.exists(vvpath)) dir.create(vvpath)
+    cat("processing:", gn1$TERYT[this], "\n")
+    this_gm_LAEA <- st_transform(this_gm, CR_crs)
+    areas_LAEA[this] <- st_area(this_gm_LAEA)
+    this_CR <- CR[this_gm_LAEA,]
+    this_CR_dense <- st_as_stars(this_CR)
+    tif_file <- file.path(vvpath, paste0("CR_gm_", gn1$TERYT[this], ".tif"))
+    write_stars(this_CR_dense, dsn=tif_file, type="Byte", NA_value=48L)
+    this_tab <- table(this_CR_dense)
+    rm(this_CR_dense)
+    o <- match(dimnames(this_tab)[[1]], colnames(tallies))
+    tallies[this, o] <- as.vector(this_tab)
+  }  
+}
+```
+
+
+```{r, eval=FALSE}
+sums <- apply(tallies, 1, sum)
+tallies <- cbind(tallies, sums)
+colnames(tallies) <- make.names(c(catnms, "Total area"))
+tallies_df <- as.data.frame(tallies)
+tallies_df$TERYT <- rownames(tallies)
+gn1_out <- merge(gn1, tallies_df, by="TERYT")
+```
+
+
+```{r, eval=FALSE}
+out_nms_geoms <- data.frame(TERYT=names(geoms))
+names(geoms) <- NULL
+all_geoms <- st_as_sf(do.call("c", geoms), out_nms_geoms)
+```
+
+
+```{r, eval=FALSE}
+output_gm <- merge(all_geoms, gn1_out, by="TERYT")
+st_write(output_gm, "output_gm_CR2018.gpkg", append=FALSE)
+# Deleting layer `output_gm_CR2018' using driver `GPKG'
+# Writing layer `output_gm_CR2018' to data source 
+#   `output_gm_CR2018.gpkg' using driver `GPKG'
+# Writing 2477 features with 48 fields and geometry type Multi Polygon.
+```
+
+
+```{r, eval=FALSE}
+summary(areas - areas_LAEA)/10000
+#    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+# -57.772 -14.516  -8.222  -8.255  -1.692  42.319
+```
+
+
+```{r, eval=FALSE}
+summary(units::drop_units(areas)/10000 - output_gm$Total.area)
+#      Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+# -61.67030 -16.16738  -8.03760  -8.25860  -0.08959  47.40935
+```
+
+
+```{r, eval=FALSE}
+summary(units::drop_units(areas_LAEA)/10000 - output_gm$Total.area)
+#      Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+# -31.96871  -4.74718  -0.12373  -0.00374   4.90589  28.72064 
+
+```
+
+
+https://github.com/r-spatial/mapview/issues/208
+
+
+
+# Bridges to GIS
+
+https://rsbivand.github.io/geomed19-workshop/Geomed19_II.html
+
+https://r.esri.com/
+
+https://github.com/R-ArcGIS
+
+https://github.com/R-ArcGIS/r-bridge
+
+
+# Graphics
+
+https://rsbivand.github.io/BAN422_V20/ban422_v20_tues.html
+
+https://rsbivand.github.io/BAN422_V20/docs/ban422_v20_wed.html
+
+
