@@ -173,6 +173,8 @@ https://github.com/R-ArcGIS
 
 https://github.com/R-ArcGIS/r-bridge
 
+https://cran.r-project.org/package=arcpullr
+
 
 # Graphics
 
