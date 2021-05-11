@@ -399,7 +399,8 @@ st_write(output_gm, &quot;output_gm_CR2018.gpkg&quot;, append=FALSE)
 # Writing layer `output_gm_CR2018&#39; to data source 
 #   `output_gm_CR2018.gpkg&#39; using driver `GPKG&#39;
 # Writing 2477 features with 48 fields and geometry type Multi Polygon.</code></pre>
-<pre class="r"><code>summary(areas - areas_LAEA)/10000
+<pre class="r"><code>areas &lt;- st_area(output_gm)
+summary(areas - areas_LAEA)/10000
 #    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
 # -57.772 -14.516  -8.222  -8.255  -1.692  42.319</code></pre>
 <pre class="r"><code>summary(units::drop_units(areas)/10000 - output_gm$Total.area)

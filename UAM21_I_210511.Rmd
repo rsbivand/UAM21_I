@@ -138,6 +138,7 @@ st_write(output_gm, "output_gm_CR2018.gpkg", append=FALSE)
 
 
 ```{r, eval=FALSE}
+areas <- st_area(output_gm)
 summary(areas - areas_LAEA)/10000
 #    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
 # -57.772 -14.516  -8.222  -8.255  -1.692  42.319
